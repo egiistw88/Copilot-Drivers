@@ -1,6 +1,6 @@
 {
-  "name": "copilot-driver-bandung",
-  "description": "Aplikasi asisten pintar untuk pengemudi ride-hailing di Bandung dengan fitur AI, Heatmap, dan PWA.",
+  "name": "copilot-driver",
+  "description": "Aplikasi asisten pintar untuk pengemudi ride-hailing dengan PWA, Radar Heatmap Realtime, Rekomendasi AI, SOS Darurat, dan Rekapitulasi Pendapatan Harian.",
   "private": true,
   "version": "1.0.0",
   "type": "module",

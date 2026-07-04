@@ -1,6 +1,6 @@
 {
   "name": "Copilot Driver",
-  "description": "Aplikasi asisten pintar untuk pengemudi ride-hailing dengan PWA, Heatmap Realtime, Analisa Titik Keramaian (OSM & AI), tombol SOS WhatsApp terintegrasi, dan laporan penghasilan harian.",
+  "description": "Aplikasi asisten pintar untuk pengemudi ride-hailing (ojek/taksi online). Dilengkapi Radar Heatmap Realtime, Rekomendasi AI, SOS Darurat, dan Rekapitulasi Pendapatan Harian (Shift Summary) yang komprehensif.",
   "requestFramePermissions": [
     "geolocation"
   ],

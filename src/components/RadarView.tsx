@@ -4,13 +4,15 @@ import { X, Layers, Navigation, ChevronLeft, CloudRain, Sun, Cloud, Clock } from
 import { motion, AnimatePresence } from 'motion/react';
 
 interface RadarViewProps {
+  onSelectZone?: (zone: any) => void;
   onClose: () => void;
   driverPosition: { lat: number; lng: number };
   heatmapData: Array<[number, number, number]>;
+  topZones?: any[];
   weather?: string;
 }
 
-export function RadarView({ onClose, driverPosition, heatmapData, weather = "Cerah" }: RadarViewProps) {
+export function RadarView({ onClose, driverPosition, heatmapData, topZones = [], weather = "Cerah", onSelectZone }: RadarViewProps) {
   const [activeLayers, setActiveLayers] = useState<string[]>(['heatmap']);
   const [forceCenter, setForceCenter] = useState(0);
   const [showLayers, setShowLayers] = useState(false);
@@ -44,6 +46,7 @@ export function RadarView({ onClose, driverPosition, heatmapData, weather = "Cer
       <div className="flex-1 relative">
         <MapView 
           heatmapData={activeLayers.includes('heatmap') ? heatmapData : []} 
+          topZones={activeLayers.includes('heatmap') ? topZones : []}
           driverPosition={driverPosition} 
           forceCenter={forceCenter}
         />
@@ -105,6 +108,39 @@ export function RadarView({ onClose, driverPosition, heatmapData, weather = "Cer
                   <span>Demand Heatmap</span>
                   {activeLayers.includes('heatmap') && <div className="w-3 h-3 rounded-full bg-red-500 border border-[#111111]"></div>}
                 </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Recommended Zones Overlay */}
+        <AnimatePresence>
+          {topZones && topZones.length > 0 && activeLayers.includes('heatmap') && (
+            <motion.div 
+              initial={{ opacity: 0, y: 50 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 50 }}
+              className="absolute bottom-6 left-4 right-4 z-[1000]"
+            >
+              <div className="bg-white border-2 border-[#111111] rounded-2xl p-4 shadow-[8px_8px_0px_0px_#111111]">
+                <h3 className="font-extrabold text-lg mb-3 flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-[#10b981] animate-pulse inline-block border border-[#111111]"></span>
+                  Target Hotspot (Live)
+                </h3>
+                <div className="flex gap-3 overflow-x-auto pb-2 snap-x hide-scrollbar">
+                  {topZones.map((z, idx) => (
+                    <div key={idx} onClick={() => onSelectZone && onSelectZone(z)} className="min-w-[180px] snap-center bg-gray-50 border-2 border-[#111111] rounded-xl p-3 shrink-0 flex flex-col justify-between active:scale-95 transition-transform cursor-pointer">
+                      <p className="font-bold text-md truncate">{z.name}</p>
+                      <div className="flex justify-between items-end mt-2">
+                        <span className="text-sm font-bold text-gray-500 bg-gray-200 px-2 py-1 rounded-lg">~{Math.round(z.radius)}m</span>
+                        <div className="text-right">
+                          <span className="text-xs font-bold block">Skor</span>
+                          <span className="font-black text-lg text-[#10b981]">{z.score}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </motion.div>
           )}

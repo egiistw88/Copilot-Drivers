@@ -44,8 +44,8 @@ function HeatmapOverlay({ heatmapData }: { heatmapData: HeatmapPoint[] }) {
         }
 
         heatLayer = (L as any).heatLayer(points, {
-          radius: 40,
-          blur: 35,
+          radius: 20,
+          blur: 25,
           maxZoom: 15,
           max: 1.0,
           gradient: {
@@ -105,11 +105,12 @@ function MapController({ center, forceCenter = 0 }: { center: {lat: number, lng:
 
 interface MapViewProps {
   heatmapData: HeatmapPoint[];
+  topZones?: any[];
   driverPosition: { lat: number; lng: number; accuracy?: number; heading?: number };
   forceCenter?: number;
 }
 
-export const MapView = memo(function MapView({ heatmapData, driverPosition, forceCenter }: MapViewProps) {
+export const MapView = memo(function MapView({ heatmapData, topZones = [], driverPosition, forceCenter }: MapViewProps) {
   return (
     <div className="absolute inset-0 w-full h-full z-0">
       <MapContainer 
@@ -125,6 +126,16 @@ export const MapView = memo(function MapView({ heatmapData, driverPosition, forc
         />
         <HeatmapOverlay heatmapData={heatmapData} />
         <MapController center={driverPosition} forceCenter={forceCenter} />
+        
+        {/* Recommended Zones */ }
+        {topZones.map((z, i) => (
+           <Circle 
+             key={i}
+             center={[z.lat, z.lng]}
+             radius={z.radius}
+             pathOptions={{ color: '#10b981', fillColor: '#10b981', fillOpacity: 0.1, weight: 2, dashArray: '5, 5' }}
+           />
+        ))}
         
         {/* Real-time accuracy circle */}
         {driverPosition.accuracy && (

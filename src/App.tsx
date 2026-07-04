@@ -6,35 +6,27 @@ import { SmartNewsAlert, AlertType } from './components/SmartNewsAlert';
 import { CopilotSheet } from './components/CopilotSheet';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { SettingsSheet } from './components/SettingsSheet';
-import { OrderInputSheet } from './components/OrderInputSheet';
-import { ShiftRecapSheet } from './components/ShiftRecapSheet';
 import { RecommendationsSheet } from './components/RecommendationsSheet';
-import { FinalReceiptModal } from './components/FinalReceiptModal';
 import { SOSButton } from './components/SOSButton';
+import { OrderInputDialog } from './components/OrderInputDialog';
+import { ShiftSummarySheet } from './components/ShiftSummarySheet';
 import { 
   ViewState, 
-  FinalReceiptData, 
   DriverPosition, 
   DriverConfig, 
-  ShiftStats, 
-  OrderHistoryItem, 
   Recommendation 
 } from './types';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<ViewState>('home');
-  const [driverPosition, setDriverPosition] = useState<DriverPosition>({ lat: -6.8906, lng: 107.6105, accuracy: 10, heading: 0 }); // Dago, Bandung
-  const [score, setScore] = useState(85);
+  const [driverPosition, setDriverPosition] = useState<DriverPosition>({ lat: 0, lng: 0, accuracy: 10, heading: 0 });
+  const [score, setScore] = useState(0);
   const [locationName, setLocationName] = useState("Mencari Lokasi...");
-  const [recommendation, setRecommendation] = useState<Recommendation>({
-    targetLocation: "Antapani",
-    distanceKm: 1.4,
-    etaMins: 5,
-    actionText: "Geser ke Antapani"
-  });
+  const [recommendation, setRecommendation] = useState<Recommendation | null>(null);
   const [recommendationsList, setRecommendationsList] = useState<Recommendation[]>([]);
-  const [contextPills, setContextPills] = useState(["Kampus Aktif", "Lalin Sedang", "Cerah"]);
+  const [contextPills, setContextPills] = useState<string[]>([]);
   const [heatmapData, setHeatmapData] = useState<Array<[number, number, number]>>([]);
+  const [topZones, setTopZones] = useState<any[]>([]);
   
   const [activeTargetLocation, setActiveTargetLocation] = useState<string | null>(null);
   const [activeTargetAddress, setActiveTargetAddress] = useState<string | null>(null);
@@ -44,24 +36,36 @@ export default function App() {
   const [alertType, setAlertType] = useState<AlertType>('news');
   const [showCopilot, setShowCopilot] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [showOrderInput, setShowOrderInput] = useState(false);
-  const [showRecapSheet, setShowRecapSheet] = useState(false);
-  const [showFinalReceipt, setShowFinalReceipt] = useState(false);
-  const [finalReceiptData, setFinalReceiptData] = useState<FinalReceiptData | null>(null);
   const [showRecommendations, setShowRecommendations] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   // Driver Configuration
-  const [driverConfig, setDriverConfig] = useState<DriverConfig>({
-    vehicleType: 'motorcycle',
-    serviceType: 'all',
-    targetIncome: 150000,
+  const [showOrderInput, setShowOrderInput] = useState(false);
+  const [showShiftSummary, setShowShiftSummary] = useState(false);
+  const [orders, setOrders] = useState<any[]>(() => {
+    const saved = localStorage.getItem('copilot_orders');
+    if (saved) return JSON.parse(saved);
+    return [];
   });
-
-  // Shift statistics
-  const [shiftStats, setShiftStats] = useState<ShiftStats>({ orders: 0, income: 0 });
-  const [orderHistory, setOrderHistory] = useState<OrderHistoryItem[]>([]);
   
+  React.useEffect(() => {
+    localStorage.setItem('copilot_orders', JSON.stringify(orders));
+  }, [orders]);
+
+  const [driverConfig, setDriverConfig] = useState<DriverConfig>(() => {
+    const saved = localStorage.getItem('copilot_config');
+    if (saved) return JSON.parse(saved);
+    return {
+      vehicleType: 'motorcycle',
+      serviceType: 'all',
+      targetIncome: 150000,
+    };
+  });
+  
+  React.useEffect(() => {
+    localStorage.setItem('copilot_config', JSON.stringify(driverConfig));
+  }, [driverConfig]);
+
   // Confirmation states
   const [confirmState, setConfirmState] = useState<{
     isVisible: boolean;
@@ -91,6 +95,7 @@ export default function App() {
         if (data.recommendations) setRecommendationsList(data.recommendations);
         if (data.locationName) setLocationName(data.locationName);
         if (data.heatmapData) setHeatmapData(data.heatmapData);
+        if (data.topZones) setTopZones(data.topZones);
         
         let newPills = [...data.context];
         if (data.weather) newPills.push(data.weather);
@@ -193,16 +198,17 @@ export default function App() {
   return (
     <div className="relative w-full h-[100dvh] overflow-hidden bg-white font-sans selection:bg-[#FFC107]/30">
       
+      
+
       {currentView === 'home' && (
         <HomeView 
+          orders={orders}
           score={score}
           locationName={locationName}
           driverPosition={driverPosition}
-          heatmapData={heatmapData}
+          heatmapData={heatmapData} topZones={topZones}
           recommendation={recommendation}
           contextPills={contextPills}
-          shiftStats={shiftStats}
-          targetIncome={driverConfig.targetIncome}
           lastUpdated={lastUpdated}
           isLoading={isLoading}
           driverConfig={driverConfig}
@@ -223,32 +229,23 @@ export default function App() {
               }
             });
           }}
-          onResetStats={() => {
-            setConfirmState({
-              isVisible: true,
-              title: 'Reset Data Shift?',
-              message: 'Tindakan ini akan mereset statistik order dan pendapatan Anda hari ini. Lanjutkan?',
-              confirmText: 'Ya, Reset Data',
-              variant: 'danger',
-              onConfirm: () => {
-                setShiftStats({ orders: 0, income: 0 });
-                closeConfirm();
-                triggerAlert('Data shift berhasil direset.');
-              }
-            });
-          }}
           onCopilot={() => setShowCopilot(true)}
           onSettings={() => setShowSettings(true)}
-          onRecapShift={() => setShowRecapSheet(true)}
         />
       )}
 
       {currentView === 'radar' && (
         <RadarView 
           driverPosition={driverPosition}
-          heatmapData={heatmapData}
+          heatmapData={heatmapData} topZones={topZones}
           weather={contextPills.find(p => p.includes("Cerah") || p.includes("Hujan") || p.includes("Mendung") || p.includes("Awan") || p.includes("Gerimis")) || "Cerah"}
           onClose={() => setCurrentView('home')}
+          onSelectZone={(zone) => {
+            setActiveTargetLocation(zone.name);
+            setActiveTargetAddress(null);
+            setCurrentView('work');
+            triggerAlert(`Navigasi diatur ke ${zone.name}`, 'success');
+          }}
         />
       )}
 
@@ -256,8 +253,9 @@ export default function App() {
         <WorkModeView 
           score={score}
           recommendation={recommendation}
-          shiftStats={shiftStats}
+          activeTargetLocation={activeTargetLocation}
           targetIncome={driverConfig.targetIncome}
+          onAddOrderClick={() => setShowOrderInput(true)}
           onStopWork={() => {
             setConfirmState({
               isVisible: true,
@@ -268,16 +266,20 @@ export default function App() {
               variant: 'danger',
               onConfirm: () => {
                 setCurrentView('home');
+                setActiveTargetLocation(null);
+                setActiveTargetAddress(null);
                 closeConfirm();
+                setShowShiftSummary(true);
               }
             });
           }}
           onNavigate={() => {
-            setActiveTargetLocation(recommendation.targetLocation);
-            setActiveTargetAddress(null); // Wait, recommendation from predict has no address?
-            triggerAlert(`Target lokasi diatur ke ${recommendation.targetLocation} (${recommendation.distanceKm} km)`, 'success');
+            if (recommendation) {
+              setActiveTargetLocation(recommendation.targetLocation);
+              setActiveTargetAddress(null);
+              triggerAlert(`Target lokasi diatur ke ${recommendation.targetLocation} (${recommendation.distanceKm} km)`, 'success');
+            }
           }}
-          onReportOrder={() => setShowOrderInput(true)}
           onReportQuiet={() => setShowCopilot(true)} // if quiet, show copilot!
         />
       )}
@@ -293,44 +295,12 @@ export default function App() {
         config={driverConfig}
       />
 
-      <OrderInputSheet 
-        isVisible={showOrderInput}
-        onClose={() => setShowOrderInput(false)}
-        onSubmit={({ amount, time, location }) => {
-          setOrderHistory(prev => [...prev, { id: Math.random().toString(36).substring(7), amount, time, location }]);
-          setShiftStats(prev => ({ orders: prev.orders + 1, income: prev.income + amount }));
-          setShowOrderInput(false);
-          triggerAlert("Data pendapatan berhasil disimpan!");
-        }}
-      />
-
-      <ShiftRecapSheet 
-        isVisible={showRecapSheet}
-        onClose={() => setShowRecapSheet(false)}
-        shiftStats={shiftStats}
-        orderHistory={orderHistory}
-        onSubmit={(details) => {
-          setFinalReceiptData({
-            date: new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
-            totalOrders: shiftStats.orders,
-            grossIncome: details.grossIncome,
-            expenses: details.expenses,
-            netIncome: details.netIncome,
-            orderHistory: [...orderHistory]
-          });
-          setShowRecapSheet(false);
-          setShiftStats({ orders: 0, income: 0 });
-          setOrderHistory([]);
-          setShowFinalReceipt(true);
-        }}
-      />
-
       <CopilotSheet 
         isVisible={showCopilot}
         onClose={() => setShowCopilot(false)}
         contextData={{
           score,
-          demandLevel: recommendation.actionText.includes("Bertahan") ? "High" : "Medium/Low",
+          demandLevel: recommendation?.actionText.includes("Bertahan") ? "High" : "Medium/Low",
           locationName,
           weather: contextPills.find(p => p.includes('Hujan') || p.includes('Cerah') || p.includes('Berawan')) || "Cerah",
           contextPills,
@@ -373,12 +343,39 @@ export default function App() {
         }}
       />
 
-      <FinalReceiptModal 
-        isVisible={showFinalReceipt}
-        onClose={() => setShowFinalReceipt(false)}
-        data={finalReceiptData}
+      <OrderInputDialog 
+        isVisible={showOrderInput}
+        onClose={() => setShowOrderInput(false)}
+        defaultService={driverConfig.serviceType}
+        onSubmit={(orderData) => {
+          const newOrder = {
+            id: Date.now().toString(),
+            ...orderData,
+            timestamp: new Date().toISOString()
+          };
+          setOrders(prev => [newOrder, ...prev]);
+          triggerAlert(`Berhasil menambah order senilai Rp ${(orderData.amount + orderData.tips).toLocaleString('id-ID')}`, 'success');
+        }}
       />
-
+      <ShiftSummarySheet 
+        isVisible={showShiftSummary}
+        onClose={() => setShowShiftSummary(false)}
+        orders={orders}
+        onReset={() => {
+          setConfirmState({
+            isVisible: true,
+            title: "Reset Data Shift?",
+            message: "Pendapatan harian akan direset ke nol. Yakin ingin memulai shift baru?",
+            confirmText: "Ya, Reset Shift",
+            variant: 'danger',
+            onConfirm: () => {
+              setOrders([]);
+              closeConfirm();
+              triggerAlert("Data shift berhasil direset.", "success");
+            }
+          });
+        }}
+      />
       {/* SOS Button available in all views */}
       <SOSButton 
         emergencyNumber={driverConfig.emergencyNumber}

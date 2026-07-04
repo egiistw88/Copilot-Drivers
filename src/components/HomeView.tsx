@@ -2,17 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { Map, Navigation, ArrowRight, Zap, CloudRain, ShieldAlert, Settings2, RefreshCw, ClipboardCheck } from 'lucide-react';
 import { motion } from 'motion/react';
 import { MapView, HeatmapPoint } from './MapView';
-import { Recommendation, DriverPosition, ShiftStats } from '../types';
+import { Recommendation, DriverPosition } from '../types';
 
 interface HomeViewProps {
+  orders?: any[];
   score: number;
   locationName: string;
   driverPosition: DriverPosition;
   heatmapData: HeatmapPoint[];
-  recommendation: Recommendation;
+  topZones?: any[];
+  recommendation: Recommendation | null;
   contextPills: string[];
-  shiftStats: ShiftStats;
-  targetIncome: number;
   lastUpdated: Date;
   isLoading: boolean;
   driverConfig?: any;
@@ -22,12 +22,10 @@ interface HomeViewProps {
   onShowRecommendations: () => void;
   onStartWork: () => void;
   onCopilot: () => void;
-  onResetStats: () => void;
   onSettings: () => void;
-  onRecapShift: () => void;
 }
 
-export function HomeView({ score, locationName, driverPosition, heatmapData, recommendation, contextPills, shiftStats, targetIncome, lastUpdated, isLoading, driverConfig, activeTargetLocation, activeTargetAddress, onNavigateRadar, onShowRecommendations, onStartWork, onCopilot, onResetStats, onSettings, onRecapShift }: HomeViewProps) {
+export function HomeView({ orders = [], score, locationName, driverPosition, heatmapData, topZones = [], recommendation, contextPills, lastUpdated, isLoading, driverConfig, activeTargetLocation, activeTargetAddress, onNavigateRadar, onShowRecommendations, onStartWork, onCopilot, onSettings }: HomeViewProps) {
   const [timeAgo, setTimeAgo] = useState('Baru saja');
   
   useEffect(() => {
@@ -39,8 +37,6 @@ export function HomeView({ score, locationName, driverPosition, heatmapData, rec
     }, 5000);
     return () => clearInterval(interval);
   }, [lastUpdated]);
-
-  const incomeProgress = targetIncome > 0 ? Math.min(100, (shiftStats.income / targetIncome) * 100) : 0;
 
   return (
     <div className="flex flex-col h-full w-full bg-white text-[#111111] overflow-y-auto">
@@ -84,14 +80,12 @@ export function HomeView({ score, locationName, driverPosition, heatmapData, rec
             )}
           </div>
         </div>
-        <div className="flex gap-2">
-          {shiftStats.orders >= 1 && (
-            <button 
-              onClick={onRecapShift}
-              className="w-12 h-12 rounded-full bg-green-500 border-2 border-[#111111] flex items-center justify-center shadow-[4px_4px_0px_0px_#111111] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all"
-            >
-              <ClipboardCheck size={24} color="#ffffff" />
-            </button>
+        <div className="flex gap-2 items-center">
+          {orders.length > 0 && (
+            <div className="h-10 px-3 rounded-full bg-white border-2 border-[#111111] flex flex-col items-end justify-center shadow-[2px_2px_0px_0px_#111111] mr-1">
+              <span className="text-[10px] font-bold text-gray-500 uppercase leading-none mb-0.5">Pendapatan</span>
+              <span className="text-sm font-black leading-none">Rp {orders.reduce((acc, curr) => acc + (curr.amount || 0) + (curr.tips || 0), 0).toLocaleString('id-ID')}</span>
+            </div>
           )}
           <button 
             onClick={onSettings}
@@ -108,6 +102,9 @@ export function HomeView({ score, locationName, driverPosition, heatmapData, rec
         </div>
       </div>
 
+      
+      
+
       {/* Opportunity Score */}
       <div className="flex flex-col items-center justify-center py-6">
         <motion.div 
@@ -122,60 +119,24 @@ export function HomeView({ score, locationName, driverPosition, heatmapData, rec
         </span>
       </div>
 
-      {/* Shift Stats */}
-      <div className="px-6 mb-6">
-        <div className="bg-[#111111] text-white border-2 border-[#111111] rounded-2xl p-4 flex flex-col shadow-[6px_6px_0px_0px_#FFC107]">
-          <div className="flex justify-between items-center mb-4">
-            <div className="flex gap-6">
-              <div className="flex flex-col">
-                <span className="text-sm font-medium text-gray-400">Order</span>
-                <span className="text-2xl font-extrabold">{shiftStats.orders}</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-sm font-medium text-gray-400">Pendapatan</span>
-                <span className="text-2xl font-extrabold">Rp {shiftStats.income.toLocaleString('id-ID')}</span>
-              </div>
-            </div>
+      {/* AI Recommendation Card */}
+      {recommendation && (
+        <div className="px-6 mb-6">
+          <div className="bg-white border-2 border-[#111111] rounded-2xl p-5 shadow-[6px_6px_0px_0px_#111111]">
+            <h3 className="text-lg font-bold mb-1">{recommendation.actionText}</h3>
+            <p className="text-[#111111]/80 font-medium mb-4">
+              Jarak {recommendation.distanceKm} km • Estimasi: {recommendation.etaMins} mnt
+            </p>
             <button 
-              onClick={onResetStats}
-              className="text-xs font-bold uppercase px-3 py-2 bg-red-500 rounded-lg active:bg-red-600 transition-colors"
+              onClick={onShowRecommendations}
+              className="w-full h-16 bg-[#FFC107] border-2 border-[#111111] rounded-xl flex items-center justify-center gap-2 active:bg-[#e0a800] transition-colors"
             >
-              Reset
+              <Navigation size={24} className="stroke-2" />
+              <span className="text-xl font-bold">Pilih Tujuan Area</span>
             </button>
           </div>
-          
-          {/* Progress Bar */}
-          <div className="flex flex-col gap-1">
-            <div className="flex justify-between text-xs font-bold text-gray-400 uppercase">
-              <span>Target</span>
-              <span>Rp {targetIncome.toLocaleString('id-ID')}</span>
-            </div>
-            <div className="w-full h-3 bg-gray-800 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-[#FFC107] transition-all duration-500 ease-out"
-                style={{ width: `${incomeProgress}%` }}
-              />
-            </div>
-          </div>
         </div>
-      </div>
-
-      {/* AI Recommendation Card */}
-      <div className="px-6 mb-6">
-        <div className="bg-white border-2 border-[#111111] rounded-2xl p-5 shadow-[6px_6px_0px_0px_#111111]">
-          <h3 className="text-lg font-bold mb-1">{recommendation.actionText}</h3>
-          <p className="text-[#111111]/80 font-medium mb-4">
-            Jarak {recommendation.distanceKm} km • Estimasi: {recommendation.etaMins} mnt
-          </p>
-          <button 
-            onClick={onShowRecommendations}
-            className="w-full h-16 bg-[#FFC107] border-2 border-[#111111] rounded-xl flex items-center justify-center gap-2 active:bg-[#e0a800] transition-colors"
-          >
-            <Navigation size={24} className="stroke-2" />
-            <span className="text-xl font-bold">Pilih Tujuan Area</span>
-          </button>
-        </div>
-      </div>
+      )}
 
       {/* Status Pills */}
       <div className="px-6 mb-6 flex flex-wrap gap-2">
@@ -194,7 +155,7 @@ export function HomeView({ score, locationName, driverPosition, heatmapData, rec
         >
           <div className="pointer-events-none absolute inset-0 z-0">
             <MapView 
-              heatmapData={heatmapData}
+              heatmapData={heatmapData} topZones={topZones}
               driverPosition={driverPosition}
               forceCenter={0}
             />

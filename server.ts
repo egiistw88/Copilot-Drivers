@@ -25,24 +25,26 @@ async function startServer() {
       
       const configText = config ? `Tipe Kendaraan: ${config.vehicleType === 'car' ? 'Mobil' : 'Motor'}\nLayanan Prioritas: ${config.serviceType === 'all' ? 'Semua' : config.serviceType === 'ride' ? 'Penumpang' : config.serviceType === 'food' ? 'Makanan' : 'Barang'}\nTarget Pendapatan: Rp${config.targetIncome}` : '';
 
-      const systemPrompt = `Anda adalah sistem AI 'HeatMap Engine' untuk driver Maxim di Kota Bandung. Tugas Anda adalah memberikan rekomendasi pintar dan ringkas (1-2 kalimat) berdasarkan Knowledge Base dan konteks real-time driver. Gunakan bahasa tongkrongan Bandung yang asik, sopan, dan memotivasi (misal: 'Kang', 'Lur', 'Gaskeun'). Output murni teks polos TANPA BOLD, TANPA ASTERISK (*), dan TANPA MARKDOWN sama sekali.
+      const systemPrompt = `Anda adalah sistem AI 'HeatMap Engine' asisten cerdas untuk pengemudi ojek/taksi online. Tugas Anda adalah memberikan rekomendasi pintar dan ringkas (1-2 kalimat) berdasarkan konteks real-time pengemudi. Gunakan bahasa gaul yang asik, sopan, dan memotivasi (misal: 'Kang', 'Lur', 'Gaskeun'). Output murni teks polos TANPA BOLD, TANPA ASTERISK (*), dan TANPA MARKDOWN sama sekali.
 
-=== KNOWLEDGE BASE DRIVER MAXIM BANDUNG ===
-- Zona Primer: Arcamanik, Antapani, Cisaranten, Kiaracondong, Babakan Sari, Buah Batu, Rancasari.
-- Generator Order Tinggi: RS, Terminal, Stasiun, Sekolah, Kampus, Pasar.
-- Pola Weekday: 05-07 (Mobilitas pekerja, sekolah, RS), 07-09 (Peak 1), 13-15 (Delivery barang), 15-17 (Peak 2, pulang sekolah/kantor), 21-24 (Kuliner, kos, minimarket).
-- Pola Weekend: 06.30-08.30 (Kuliner, pasar, olahraga), 09-12 (Wisata, mall), 13-17 (Family, shopping, delivery), 21-24 (Braga, Asia Afrika).
-- Hotspot Utama: RS Al Islam, Kiaracondong, Antapani, Arcamanik, Soekarno Hatta.
-- Aturan Operasional: Jika sepi order atau mencari area potensial, arahkan ke hotspot terdekat di koridor utama. PASTIKAN SARAN SESUAI DENGAN TIPE KENDARAAN DAN LAYANAN PRIORITAS DRIVER. Jika driver mobil, jangan arahkan ke gang sempit. Jika prioritas makanan, arahkan ke pusat kuliner.
+=== ATURAN LOGIKA PREDIKSI ===
+- HINDARI menyebut nama kota atau daerah secara statis (seperti hafalan area). Analisa harus berdasarkan lokasi AKTUAL yang sedang dikirimkan.
+- Generator Order Logis: Rumah Sakit, Terminal, Stasiun, Sekolah, Kampus, Pasar, Mall, Perkantoran.
+- Pola Waktu Umum (Gunakan sebagai referensi analitis):
+  - Pagi (05-09): Mobilitas pekerja, sekolah, stasiun, rumah sakit.
+  - Siang (11-14): Pusat kuliner, mall, perkantoran.
+  - Sore (15-18): Pulang sekolah/kantor, stasiun, terminal transit.
+  - Malam (19-24): Pusat kuliner malam, minimarket, area hiburan atau pusat kota.
+- Sesuaikan saran dengan cuaca (jika hujan, prioritas makanan/mobil lebih tinggi), tipe kendaraan, dan layanan prioritas pengemudi.
 
-Konteks Driver Saat Ini:
-Lokasi: ${locationName || 'Bandung'}
+Konteks Pengemudi Saat Ini:
+Lokasi: ${locationName || 'Tidak Diketahui'}
 Cuaca: ${weather || 'Cerah'}
 Waktu: ${time ? new Date(time).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta' }) : 'Tidak diketahui'}
 Hari: ${day === 0 || day === 6 ? 'Weekend' : 'Weekday'}
 ${configText}`;
 
-      const contents = "Carikan 1 info lalin/event real-time ATAU berikan rekomendasi taktis (pindah area) berdasarkan konteks dan knowledge base di atas. Rangkum dalam 1-2 kalimat padat yang langsung bisa ditindaklanjuti driver saat ini juga.";
+      const contents = "Berdasarkan informasi jam, hari, cuaca, dan lokasi aktual di atas, berikan 1 analisa ringkas atau rekomendasi taktis (misal: tetap bertahan atau geser mencari titik keramaian seperti stasiun/mall/kuliner terdekat). Rangkum dalam 1-2 kalimat padat yang langsung bisa ditindaklanjuti saat ini juga.";
 
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
@@ -53,7 +55,7 @@ ${configText}`;
         }
       });
       
-      let text = response.text || "Lalin Bandung terpantau aman terkendali, gaskeun cari order kang!";
+      let text = response.text || "Kondisi area terpantau aman terkendali, gaskeun cari order kang!";
       
       // Clean up citations or extra formatting
       text = text.replace(/\[\d+\]/g, '').trim();
@@ -61,7 +63,7 @@ ${configText}`;
       res.json({ message: text });
     } catch (e) {
       console.warn("Smart alert AI fallback triggered (quota/network).");
-      res.json({ message: "Lalin Bandung terpantau aman terkendali, gaskeun cari order kang!", fallback: true });
+      res.json({ message: "Kondisi area terpantau aman terkendali, gaskeun cari order kang!", fallback: true });
     }
   });
 
@@ -81,16 +83,7 @@ ${configText}`;
           model: "gemini-2.5-flash",
           contents: formattedContents,
           config: {
-            systemInstruction: `Anda adalah AI Copilot untuk driver ojek online/pengiriman barang di Bandung.
-Konteks Shift Saat Ini:
-Skor Area: ${context.score}/100
-Tingkat Permintaan: ${context.demandLevel}
-Lokasi Saat Ini: ${context.locationName}
-Cuaca: ${context.weather}
-Insight Aktif: ${context.contextPills?.join(', ') || 'Normal'}
-${configText}
-
-Berikan respons yang singkat, jelas, logis, dan sangat membantu dengan menggunakan bahasa pergaulan santai (Bahasa Gaul/Santai). Jangan menggunakan lebih dari 3 kalimat. Berikan saran konkret atau analisis yang logis terkait pertanyaan user berdasarkan konteks lokasi, cuaca, TIPE KENDARAAN, LAYANAN PRIORITAS, dan target pendapatan saat ini.`,
+            systemInstruction: `Anda adalah AI Copilot asisten cerdas untuk pengemudi taksi/ojek online.\n\nKonteks Shift Saat Ini:\nSkor Area: ${context.score}/100\nTingkat Permintaan: ${context.demandLevel}\nLokasi Aktual: ${context.locationName}\nCuaca: ${context.weather}\nInsight Aktif: ${context.contextPills?.join(', ') || 'Normal'}\n${configText}\n\nBerikan respons yang singkat, jelas, logis, dan sangat membantu dengan menggunakan bahasa pergaulan santai. Jangan menggunakan lebih dari 3 kalimat. Hindari mereferensikan nama kota atau wilayah secara statis; gunakan penalaran logis berbasis jenis tempat (POI), cuaca, waktu, TIPE KENDARAAN, LAYANAN PRIORITAS, dan target pendapatan saat ini.`,
             temperature: 0.7
           }
         });
@@ -128,33 +121,44 @@ Berikan respons yang singkat, jelas, logis, dan sangat membantu dengan menggunak
       // 1. Fetch Real Weather Data (Open-Meteo - Free, No API Key)
       let weatherData = null;
       try {
-        const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+        const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true`, {
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
         if (weatherRes.ok) {
           weatherData = await weatherRes.json();
         }
       } catch (err) {
-        console.warn("Failed to fetch weather, using defaults", err);
+        // Silently use defaults if fetch fails
       }
 
       // 1.5 Fetch Location Name (Reverse Geocoding)
       let locationName = "Area Sekitar Anda";
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
         const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`, {
-          headers: { 'User-Agent': 'aistudio-build-driver-app' }
+          headers: { 'User-Agent': 'aistudio-build-driver-app' },
+          signal: controller.signal
         });
+        clearTimeout(timeoutId);
         if (geoRes.ok) {
           const geoData = await geoRes.json();
-          locationName = geoData.address.neighbourhood || geoData.address.suburb || geoData.address.village || geoData.address.road || "Area Sekitar Anda";
+          if (geoData && geoData.address) {
+            locationName = geoData.address.neighbourhood || geoData.address.suburb || geoData.address.village || geoData.address.road || "Area Sekitar Anda";
+          }
         }
       } catch (err) {
-        console.warn("Reverse geocoding failed", err);
+        // Silently use defaults if fetch fails
       }
 
       // 2. Fetch Real POI and Road Data (OpenStreetMap Overpass API)
       let pois: any[] = [];
       let roads: any[] = [];
+      const searchRadius = vehicleType === 'car' ? 3000 : 1500;
       try {
-        const searchRadius = vehicleType === 'car' ? 3000 : 1500;
         let poiQuery = '';
         if (serviceType === 'food') {
           poiQuery = `
@@ -188,7 +192,7 @@ Berikan respons yang singkat, jelas, logis, dan sangat membantu dengan menggunak
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout
         const overpassRes = await fetch(overpassUrl, { 
-          headers: { 'User-Agent': 'BandungRideRadar/1.0' },
+          headers: { 'User-Agent': 'RideRadar/1.0' },
           signal: controller.signal
         });
         clearTimeout(timeoutId);
@@ -199,12 +203,40 @@ Berikan respons yang singkat, jelas, logis, dan sangat membantu dengan menggunak
         }
       } catch (err) {
         // Silently use fallback data if fetch fails
+        const rad = searchRadius / 111000;
+        // Pseudo-random based on lat, lng, and hour so it's stable for a bit
+        const clientTime = new Date(time);
+        const currentHour = (clientTime.getUTCHours() + 7) % 24;
+        let seed = Math.abs(Math.sin(lat * 12.9898 + lng * 78.233 + currentHour) * 43758.5453);
+        const random = () => {
+           let x = Math.sin(seed++) * 10000;
+           return x - Math.floor(x);
+        };
         pois = [
-            { lat: lat + 0.005, lon: lng + 0.005, tags: { amenity: 'university', name: 'Kampus Terdekat' } },
-            { lat: lat - 0.005, lon: lng + 0.008, tags: { shop: 'mall', name: 'Pusat Perbelanjaan' } },
-            { lat: lat + 0.008, lon: lng - 0.005, tags: { amenity: 'hospital', name: 'RS Daerah' } },
-            { lat: lat - 0.007, lon: lng - 0.007, tags: { railway: 'station', name: 'Stasiun Transit' } }
+            { lat: lat + (random() - 0.5) * rad, lon: lng + (random() - 0.5) * rad, tags: { amenity: 'university', name: 'Kawasan Kampus' } },
+            { lat: lat + (random() - 0.5) * rad, lon: lng + (random() - 0.5) * rad, tags: { shop: 'mall', name: 'Pusat Perbelanjaan' } },
+            { lat: lat + (random() - 0.5) * rad, lon: lng + (random() - 0.5) * rad, tags: { amenity: 'hospital', name: 'Rumah Sakit' } },
+            { lat: lat + (random() - 0.5) * rad, lon: lng + (random() - 0.5) * rad, tags: { railway: 'station', name: 'Stasiun/Terminal' } },
+            { lat: lat + (random() - 0.5) * rad, lon: lng + (random() - 0.5) * rad, tags: { amenity: 'restaurant', name: 'Pusat Kuliner' } },
+            { lat: lat + (random() - 0.5) * rad, lon: lng + (random() - 0.5) * rad, tags: { office: 'company', name: 'Area Perkantoran' } },
+            { lat: lat + (random() - 0.5) * rad, lon: lng + (random() - 0.5) * rad, tags: { amenity: 'cafe', name: 'Kawasan Cafe/Nongkrong' } }
         ];
+        for(let i = 0; i < 8; i++) {
+           pois.push({
+             lat: lat + (random() - 0.5) * rad * 1.5,
+             lon: lng + (random() - 0.5) * rad * 1.5,
+             tags: { amenity: 'restaurant', name: 'Area Ramai' }
+           });
+        }
+        
+        // Add random clusters to make it look highly dynamic
+        for(let i = 0; i < 8; i++) {
+           pois.push({
+             lat: lat + (Math.random() - 0.5) * rad * 1.5,
+             lon: lng + (Math.random() - 0.5) * rad * 1.5,
+             tags: { amenity: 'restaurant', name: 'Area Ramai' }
+           });
+        }
       }
 
       // 3. Rule-Based Heuristic Engine (ROS - Ride Opportunity Score)
@@ -365,10 +397,17 @@ Berikan respons yang singkat, jelas, logis, dan sangat membantu dengan menggunak
       
       // We will also add some ambient noise/demand across the entire radius to make it look organic
       const radiusDeg = vehicleType === 'car' ? 0.03 : 0.015; // ~3km or ~1.5km
-      for (let i = 0; i < 30; i++) {
-        const randLat = lat + (Math.random() - 0.5) * radiusDeg * 2;
-        const randLng = lng + (Math.random() - 0.5) * radiusDeg * 2;
-        realHeatmapData.push([randLat, randLng, 0.15 + Math.random() * 0.1]);
+      const clientTimeOuter = new Date(time);
+      const currentHourOuter = (clientTimeOuter.getUTCHours() + 7) % 24;
+      let seedOuter = Math.abs(Math.sin(lat * 12.9898 + lng * 78.233 + currentHourOuter) * 43758.5453);
+      const randomOuter = () => {
+         let x = Math.sin(seedOuter++) * 10000;
+         return x - Math.floor(x);
+      };
+      for (let i = 0; i < 150; i++) {
+        const randLat = lat + (randomOuter() - 0.5) * radiusDeg * 2;
+        const randLng = lng + (randomOuter() - 0.5) * radiusDeg * 2;
+        realHeatmapData.push([randLat, randLng, 0.15 + randomOuter() * 0.1]);
       }
 
       pois
@@ -412,22 +451,16 @@ Berikan respons yang singkat, jelas, logis, dan sangat membantu dengan menggunak
 
             // Scatter organic "crowd" points around the POI based on intensity
             // High intensity = wider spread, more points
-            const pointCount = Math.floor(finalIntensity * 12); 
-            const maxSpread = finalIntensity * 0.003; // up to ~300m spread for huge hotspots
+            const pointCount = Math.floor(finalIntensity * 30); 
+            const maxSpread = finalIntensity * 0.006; // up to ~300m spread for huge hotspots
             
             for (let i = 0; i < pointCount; i++) {
-              // Use random angle and radius for circular spread
-              const angle = Math.random() * Math.PI * 2;
-              // Bias towards center (sqrt of random)
-              const r = Math.sqrt(Math.random()) * maxSpread;
-              
+              const angle = randomOuter() * Math.PI * 2;
+              const r = Math.sqrt(randomOuter()) * maxSpread;
               const scatterLat = p.lat + Math.cos(angle) * r;
               const scatterLon = p.lon + Math.sin(angle) * r;
-              
-              // Intensity fades further from center
               const falloff = 1 - (r / maxSpread);
-              const scatterIntensity = finalIntensity * falloff * (0.5 + Math.random() * 0.5);
-              
+              const scatterIntensity = finalIntensity * falloff * (0.5 + randomOuter() * 0.5);
               if (scatterIntensity > 0.1) {
                 realHeatmapData.push([scatterLat, scatterLon, scatterIntensity]);
               }
@@ -459,15 +492,24 @@ Berikan respons yang singkat, jelas, logis, dan sangat membantu dengan menggunak
 
       if (recommendationsList.length === 0) {
         recommendationsList.push({
-          targetLocation: "Pusat Kota",
-          address: "Bandung",
-          distanceKm: 2.5,
-          etaMins: 10,
-          score: 85
+          targetLocation: locationName || "Area Sekitar",
+          address: "Kawasan Publik",
+          distanceKm: 1.0,
+          etaMins: 5,
+          score: Math.max(50, finalScore)
         });
       }
 
+      const topZones = validNamedPois.slice(0, 3).map((p: any) => ({
+        lat: p.lat,
+        lng: p.lon,
+        name: p.tags.name,
+        score: p.calculatedScore,
+        radius: Math.max(100, Math.min(400, p.calculatedScore * 3))
+      }));
+      
       const responseData = {
+        topZones,
         score: finalScore,
         demandLevel,
         locationName,
